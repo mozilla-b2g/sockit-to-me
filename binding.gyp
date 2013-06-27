@@ -1,10 +1,10 @@
 {
   "targets": [
     {
-      "target_name": "sockit-to-me",
+      "target_name": "sockit",
       "sources": [ 
         "src/addon.cc",
-        "src/sockit-to-me.cc"
+        "src/sockit.cc"
       ]
     }
   ]

@@ -5,14 +5,14 @@
 #include <node.h>
 
 // Local includes
-#include "sockit-to-me.h"
+#include "sockit.h"
 
 // So we don't spend half the time typing 'v8::'
 using namespace v8;
 
 // Initialize
 void InitAll(Handle<Object> aExports) {
-  SockitToMe::Init(aExports);
+  Sockit::Init(aExports);
 }
 
-NODE_MODULE(addon, InitAll)
+NODE_MODULE(sockit, InitAll)
