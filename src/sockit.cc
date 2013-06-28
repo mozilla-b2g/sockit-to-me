@@ -1,6 +1,3 @@
-// Indicate we're building a node.js extension
-#define BUILDING_NODE_EXTENSION
-
 // Global includes
 #include <node.h>
 
@@ -30,7 +27,11 @@ Sockit::Sockit() : mSocket(0) {
 }
 
 Sockit::~Sockit() {
-
+  // Close our socket if it's still open.
+  if(mSocket != 0) {
+    // XXXAus: We should probably report error on close.
+    close(mSocket);
+  }
 }
 
 /*static*/ void
@@ -199,8 +200,6 @@ Sockit::Connect(const Arguments& aArgs) {
   if(connect(
        sockit->mSocket, (sockaddr *) &address, sizeof(struct sockaddr)
      ) < 0) {
-    // Save error number.
-    int connectError = errno;
     // We failed to connect. Close to socket we created.
     close(sockit->mSocket);
     // In case there's another connect attempt, clean up the socket data.
@@ -245,14 +244,28 @@ Sockit::Read(const Arguments& aArgs) {
   unsigned int bytesToRead = aArgs[0]->ToNumber()->Uint32Value();
   // Allocate a shiny buffer.
   char *buffer = new char[bytesToRead];
-  // Read it.
-  int bytesRead = read(sockit->mSocket, &buffer[0], bytesToRead);
+  // Track how many bytes we've read and total bytes read.
+  int totalBytesRead = 0;
+  int bytesRead = 0;
+  // Read me some tasty bytes!
+  do {
+    bytesRead = recv(sockit->mSocket, &buffer[totalBytesRead], bytesToRead, 0);
+
+    bytesToRead -= bytesRead;
+    totalBytesRead += bytesRead;
+
+    bytesRead = 0;
+  }
+  while(bytesToRead > 0);
+
   // Sadly, we have to copy the data, we can't just assign this memory to
   // the string object as it may not be allocated by the same allocator.
-  Local<String> data = String::New(buffer, bytesRead);
+  Local<String> data = String::New(buffer, totalBytesRead);
+
   // Done with our temporary buffer.
   delete buffer;
 
+  // Return those tasty bytes!
   return scope.Close(data);
 }
 
@@ -290,10 +303,23 @@ Sockit::Write(const Arguments& aArgs) {
     );
   }
 
-  char *data = "GET / HTTP/1.0\n\n";
+  Local<String> dataString = aArgs[0]->ToString();
+  String::Utf8Value data(dataString);
 
-  int bytesToWrite = strlen(data);
-  int bytesWritten = write(sockit->mSocket, data, bytesToWrite);
+  unsigned int bytesToWrite = dataString->Utf8Length();
+
+  int totalBytesWritten = 0;
+  int bytesWritten = 0;
+
+  do {
+    bytesWritten = send(sockit->mSocket, &(*data)[totalBytesWritten], bytesToWrite, 0);
+
+    totalBytesWritten += bytesWritten;
+    bytesToWrite -= bytesWritten;
+
+    bytesWritten = 0;
+  }
+  while(bytesToWrite > 0);
 
   return aArgs.This();
 }
