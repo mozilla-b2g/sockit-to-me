@@ -8,8 +8,9 @@
 #include <errno.h>
 #include <unistd.h>
 
-#include <sys/types.h>
+#include <sys/ioctl.h>
 #include <sys/socket.h>
+#include <sys/types.h>
 
 #include <arpa/inet.h>
 #include <netdb.h>
@@ -24,7 +25,7 @@ using namespace v8;
 static const double SUCCESS = 1;
 static const int    MAX_LOOKUP_RETRIES = 3;
 
-Sockit::Sockit() {
+Sockit::Sockit() : mSocket(0) {
 
 }
 
@@ -32,7 +33,8 @@ Sockit::~Sockit() {
 
 }
 
-/*static*/ void Sockit::Init(Handle<Object> aExports) {
+/*static*/ void
+Sockit::Init(Handle<Object> aExports) {
   Local<FunctionTemplate> object = FunctionTemplate::New(New);
   // Set the classname our object will have in JavaScript land.
   object->SetClassName(String::NewSymbol("Sockit"));
@@ -70,7 +72,8 @@ Sockit::~Sockit() {
   aExports->Set(String::NewSymbol("Sockit"), constructor);
 }
 
-/*static*/ Handle<Value> Sockit::New(const Arguments& aArgs) {
+/*static*/ Handle<Value>
+Sockit::New(const Arguments& aArgs) {
   HandleScope scope;
 
   Sockit* sockit = new Sockit();
@@ -79,7 +82,8 @@ Sockit::~Sockit() {
   return aArgs.This();
 }
 
-/*static*/ Handle<Value> Sockit::Connect(const Arguments& aArgs) {
+/*static*/ Handle<Value>
+Sockit::Connect(const Arguments& aArgs) {
   HandleScope scope;
 
   if(aArgs.Length() < 1) {
@@ -123,17 +127,16 @@ Sockit::~Sockit() {
     );
   }
 
-  Local<String> optionsHost = options->Get(hostKey)->ToString();
-  char *host = new char[optionsHost->Utf8Length()];
-  optionsHost->WriteUtf8(host);
+  // XXXAus: Move the DNS piece into it's own method.
 
+  String::Utf8Value optionsHost(options->Get(hostKey)->ToString());
 
   bool shouldRetry = false;
   int  retryCount = 0;
   struct hostent *hostEntry;
 
   do {
-    hostEntry = gethostbyname(host);
+    hostEntry = gethostbyname(*optionsHost);
 
     // Getting the host address failed. Let's see why.
     if(hostEntry == NULL) {
@@ -166,19 +169,30 @@ Sockit::~Sockit() {
   }
   while(shouldRetry && retryCount <= MAX_LOOKUP_RETRIES);
 
+  if(hostEntry == NULL) {
+    return scope.Close(
+      Exception::Error(String::New("Couldn't resolve host even after retries."))
+    );
+  }
+
   int socketHandle = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
   if(socketHandle < 0) {
-    return scope.Close(Number::New(errno));
+    return scope.Close(
+      Exception::Error(String::New("Failed to create socket."))
+    );
   }
 
   Sockit *sockit = ObjectWrap::Unwrap<Sockit>(aArgs.This());
   sockit->mSocket = socketHandle;
 
+  // Magic socket incantation.
   struct sockaddr_in address;
   memset(&address, 0, sizeof(address));
   address.sin_family = AF_INET;
+  // Always use first address returned, it's good enough for our purposes.
   address.sin_addr.s_addr =
       inet_addr(inet_ntoa(*(struct in_addr *)hostEntry->h_addr_list[0]));
+  // Using static cast here to enforce short as required by IPv4 functions.
   address.sin_port =
       htons(static_cast<short>(options->Get(portKey)->ToNumber()->Uint32Value()));
 
@@ -192,20 +206,110 @@ Sockit::~Sockit() {
     // In case there's another connect attempt, clean up the socket data.
     sockit->mSocket = 0;
     // Report failure to connect.
-    return scope.Close(Number::New(connectError));
+    return scope.Close(Exception::Error(String::New("Failed to connect.")));
   }
 
-  return scope.Close(Number::New(SUCCESS));
+  return aArgs.This();
 }
 
-/*static*/ Handle<Value> Sockit::Read(const Arguments& aArgs) {
+/*static*/ Handle<Value>
+Sockit::Read(const Arguments& aArgs) {
+  HandleScope scope;
 
+  if(aArgs.Length() != 1) {
+    return scope.Close(
+      Exception::Error(
+        String::New("Not enough arguments, read takes the number of bytes to be read from the socket.")
+      )
+    );
+  }
+
+  if(!aArgs[0]->IsNumber()) {
+    return scope.Close(
+      Exception::Error(String::New("Argument must be a Number."))
+    );
+  }
+
+  Sockit *sockit = ObjectWrap::Unwrap<Sockit>(aArgs.This());
+
+  // Make sure we're connected to something.
+  if(sockit->mSocket == 0) {
+    return scope.Close(
+      Exception::Error(
+        String::New("Not connected. To read data you must call connect first.")
+      )
+    );
+  }
+
+  // Figure out how many bytes the user wants us to read from the socket.
+  unsigned int bytesToRead = aArgs[0]->ToNumber()->Uint32Value();
+  // Allocate a shiny buffer.
+  char *buffer = new char[bytesToRead];
+  // Read it.
+  int bytesRead = read(sockit->mSocket, &buffer[0], bytesToRead);
+  // Sadly, we have to copy the data, we can't just assign this memory to
+  // the string object as it may not be allocated by the same allocator.
+  Local<String> data = String::New(buffer, bytesRead);
+  // Done with our temporary buffer.
+  delete buffer;
+
+  return scope.Close(data);
 }
 
-/*static*/ Handle<Value> Sockit::Write(const Arguments& aArgs) {
+/*static*/ Handle<Value>
+Sockit::Write(const Arguments& aArgs) {
+  HandleScope scope;
 
+  if(aArgs.Length() < 1) {
+    return scope.Close(
+      Exception::Error(String::New("Not enough arguments."))
+    );
+  }
+
+  if(aArgs.Length() > 1) {
+    return scope.Close(
+      Exception::Error(String::New("Too many arguments."))
+    );
+  }
+
+  // XXXAus: Not quite right, should allow for ArrayBuffer Objects also.
+  if(!aArgs[0]->IsString()) {
+    return scope.Close(
+      Exception::Error(String::New("Invalid argument, must be a String."))
+    );
+  }
+
+  Sockit *sockit = ObjectWrap::Unwrap<Sockit>(aArgs.This());
+
+  // Make sure we're connected to something.
+  if(sockit->mSocket == 0) {
+    return scope.Close(
+      Exception::Error(
+        String::New("Not connected. To read data you must call connect first.")
+      )
+    );
+  }
+
+  char *data = "GET / HTTP/1.0\n\n";
+
+  int bytesToWrite = strlen(data);
+  int bytesWritten = write(sockit->mSocket, data, bytesToWrite);
+
+  return aArgs.This();
 }
 
-/*static*/ Handle<Value> Sockit::Close(const Arguments& aArgs) {
+/*static*/ Handle<Value>
+Sockit::Close(const Arguments& aArgs) {
+  HandleScope scope;
 
+  Sockit *sockit = ObjectWrap::Unwrap<Sockit>(aArgs.This());
+  if(sockit->mSocket != 0) {
+    // If close fails we have bigger problems on our hands than a stale
+    // socket that isn't closed.
+    close(sockit->mSocket);
+  }
+
+  sockit->mSocket = 0;
+
+  return aArgs.This();
 }
