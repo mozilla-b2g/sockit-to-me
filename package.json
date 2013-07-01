@@ -7,6 +7,10 @@
   "scripts": {
   },
 
+  "dependencies": {
+    "mocha": "1.12.x"
+  },
+
   "devDependencies": {
   },
 
