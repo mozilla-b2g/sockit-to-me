@@ -19,7 +19,6 @@
 using namespace v8;
 
 // Clever constants
-static const double SUCCESS = 1;
 static const int    MAX_LOOKUP_RETRIES = 3;
 
 Sockit::Sockit() : mSocket(0) {
