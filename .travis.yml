@@ -1,2 +1,8 @@
-language: cpp
+language: node_js
+node_js:
+  - "0.11"
+  - "0.10"
+  - "0.8"
+before_script: npm install -g node-gyp
+script: node-gyp configure build -d
 
