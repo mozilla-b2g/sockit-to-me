@@ -1,0 +1,24 @@
+{
+  "name": "Sockit-to-me",
+  "version": "0.1",
+  "author": "Ghislain 'Aus' Lacroix <aus@mozilla.com>",
+  "description": "A synchronous socket API for node.js.",
+
+  "scripts": {
+  },
+
+  "devDependencies": {
+  },
+
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nullaus/sockit-to-me.git"
+  },
+
+  "license": "MPLv2",
+
+  "engines": {
+    "node": ">=0.8"
+  }
+}
+
