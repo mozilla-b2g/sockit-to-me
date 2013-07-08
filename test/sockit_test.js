@@ -2,10 +2,14 @@ var assert = require('assert');
 var ChildProcess = require('child_process');
 var Net = require('net');
 
-// Always use debug binary to test.
+// Always use debug binary during testing.
 var Sockit = require('../build/Debug/sockit');
 
 suite("Sockit Tests", function() {
+  
+  // Firing up a process can be slow on Travis CI so we allow a longer
+  // timeout for our tests.
+  this.timeout(10000);
 
   const host = '127.0.0.1';
   const port = 44321;
