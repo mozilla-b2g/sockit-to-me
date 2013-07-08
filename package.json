@@ -5,13 +5,14 @@
   "description": "A synchronous socket API for node.js.",
 
   "scripts": {
+    "test": "mocha"
   },
 
   "dependencies": {
-    "mocha": "1.12.x"
   },
 
   "devDependencies": {
+    "mocha": "1.12.x"
   },
 
   "repository": {
