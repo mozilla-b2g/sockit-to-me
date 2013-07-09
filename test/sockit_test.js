@@ -65,15 +65,26 @@ suite("Sockit Tests", function() {
     subject.connect({ host: host, port: port });
   });
 
-  test('#read', function() {
+  test('#read', function(done) {
+    // Register a listener to ensure that the server really is ready to write
+    // data when we ask it to.
+    server.on('message', function(message) {
+      // Connected, ask server to send data.
+      if(message.reply == 'connected') {
+        // Ask server to send 'helo'.
+        server.send({ command: 'send', data: helo });
+
+        // Read the response.
+        var response = subject.read(helo.length);
+        // Ensure we got the response we expected.
+        assert.equal(helo, response.toString());
+
+        done();
+      }
+    })
+
     // Connect to server.
     subject.connect({ host: host, port: port });
-    // Ask server to send 'helo'.
-    server.send({ command: 'send', data: helo });
-    // Read the response.
-    var response = subject.read(helo.length);
-    // Ensure we got the response we expected.
-    assert.equal(helo, response.toString());
   });
 
   test('#write', function(done) {
