@@ -88,18 +88,20 @@ suite("Sockit Tests", function() {
   });
 
   test('#write', function(done) {
-    // Connect to server.
-    subject.connect({ host: host, port: port });
-    // Tell the server to expect data from the client.
-    server.send({ command: 'recv', data: ackn });
-    // Register a listener to ensure that the server received the data
-    // we expected it to receive.
+    // Register a litener to ensure that the server is really ready to read
+    // data when we ask it to and to verify that it received what we sent.
     server.on('message', function(message) {
-      if(message.reply == 'expected') {
+      if(message.reply == 'connected') {
+        // Tell the server to expect data from the client.
+        server.send({ command: 'recv', data: ackn });
+        // Send data to server.
+        subject.write(ackn);
+      }
+      else if(message.reply == 'expected') {
         done();
       }
-    });
-    // Send data to server.
-    subject.write(ackn);
+    })
+    // Connect to server.
+    subject.connect({ host: host, port: port });
   });
 });
