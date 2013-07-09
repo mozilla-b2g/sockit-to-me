@@ -53,7 +53,14 @@ suite("Sockit Tests", function() {
     server.send({ command: 'stop' });
   });
 
-  test('#connect', function() {
+  test('#connect', function(done) {
+    // Register a listener to ensure that we really did connect to the server
+    // as we expected to.
+    server.on('message', function(message) {
+      if(message.reply == 'connected') {
+        done();
+      }
+    });
     // Connect throws on error and is synchronous.
     subject.connect({ host: host, port: port });
   });

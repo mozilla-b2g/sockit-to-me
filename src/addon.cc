@@ -1,6 +1,3 @@
-// Indicate we're building a node.js extension
-#define BUILDING_NODE_EXTENSION
-
 // Global includes
 #include <node.h>
 

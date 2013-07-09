@@ -252,6 +252,12 @@ Sockit::Read(const Arguments& aArgs) {
   do {
     bytesRead = recv(sockit->mSocket, &buffer[totalBytesRead], bytesToRead, 0);
 
+    if(bytesRead < 0) {
+      scope.Close(
+          Exception::Error(String::New("Error while reading from socket!"))
+      );
+    }
+
     bytesToRead -= bytesRead;
     totalBytesRead += bytesRead;
 
