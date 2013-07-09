@@ -66,7 +66,7 @@ suite("Sockit Tests", function() {
     // Read the response.
     var response = subject.read(helo.length);
     // Ensure we got the response we expected.
-    assert.equal(helo, response);
+    assert.equal(helo, response.toString());
   });
 
   test('#write', function(done) {

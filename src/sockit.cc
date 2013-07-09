@@ -1,5 +1,6 @@
 // Global includes
 #include <node.h>
+#include <node_buffer.h>
 
 // Platform dependent includes.
 #include <errno.h>
@@ -258,15 +259,29 @@ Sockit::Read(const Arguments& aArgs) {
   }
   while(bytesToRead > 0);
 
-  // Sadly, we have to copy the data, we can't just assign this memory to
-  // the string object as it may not be allocated by the same allocator.
-  Local<String> data = String::New(buffer, totalBytesRead);
+  // Create a node heap allocated buffer first.
+  node::Buffer *heapBuffer = node::Buffer::New(totalBytesRead);
+  // Copy our temporary buffer data into the heap buffer.
+  memcpy(node::Buffer::Data(heapBuffer), buffer, totalBytesRead);
 
   // Done with our temporary buffer.
   delete buffer;
 
+  // Now we construct an actual 'Buffer' node.js object.
+  // First we need the global context object.
+  Local<Object> globalContext = Context::GetCurrent()->Global();
+  // Now we get the constructor function for the 'Buffer' object.
+  Local<Function> jsBufferConstructor =
+      Local<Function>::Cast(globalContext->Get(String::NewSymbol("Buffer")));
+  // Create the arguments array to call the 'Buffer' constructor.
+  Handle<Value> jsBufferConstructorArgs[3] =
+    { heapBuffer->handle_, Integer::New(totalBytesRead), Integer::New(0) };
+  // Call the 'Buffer' constructor, finally!
+  Local<Object> jsBuffer =
+      jsBufferConstructor->NewInstance(3, jsBufferConstructorArgs);
+
   // Return those tasty bytes!
-  return scope.Close(data);
+  return scope.Close(jsBuffer);
 }
 
 /*static*/ Handle<Value>
@@ -285,34 +300,65 @@ Sockit::Write(const Arguments& aArgs) {
     );
   }
 
-  // XXXAus: Not quite right, should allow for ArrayBuffer Objects also.
-  if(!aArgs[0]->IsString()) {
-    return scope.Close(
-      Exception::Error(String::New("Invalid argument, must be a String."))
-    );
-  }
-
   Sockit *sockit = ObjectWrap::Unwrap<Sockit>(aArgs.This());
 
   // Make sure we're connected to something.
   if(sockit->mSocket == 0) {
     return scope.Close(
       Exception::Error(
-        String::New("Not connected. To read data you must call connect first.")
+        String::New("Not connected. To write data you must call connect first.")
       )
     );
   }
 
-  Local<String> dataString = aArgs[0]->ToString();
-  String::Utf8Value data(dataString);
+  int success = 0;
 
-  unsigned int bytesToWrite = dataString->Utf8Length();
+  if(aArgs[0]->IsString()) {
+    // Convert to utf8 value before sending.
+    Local<String> dataString = aArgs[0]->ToString();
+    String::Utf8Value data(dataString);
+    // Write the data to the socket.
+    success = sockit->Write(*data, dataString->Utf8Length());
+  }
+  else if(aArgs[0]->IsObject() &&
+          aArgs[0]->ToObject()->GetConstructorName()->Equals(String::NewSymbol("Buffer"))) {
+    Local<Object> buffer = aArgs[0]->ToObject();
+    success =
+        sockit->Write(node::Buffer::Data(buffer), node::Buffer::Length(buffer));
+  }
+  else {
+    return scope.Close(
+      Exception::Error(
+        String::New("Invalid argument, must be a 'String' or 'Buffer' object.")
+      )
+    );
+  }
 
+  if(success < 0) {
+    return scope.Close(String::New("Unable to write data to socket."));
+  }
+
+  return aArgs.This();
+}
+
+int
+Sockit::Write(const char *aBuffer, const int aLength) {
+
+  int bytesToWrite = aLength;
   int totalBytesWritten = 0;
   int bytesWritten = 0;
 
   do {
-    bytesWritten = send(sockit->mSocket, &(*data)[totalBytesWritten], bytesToWrite, 0);
+    bytesWritten =
+        send(mSocket,
+             aBuffer + (totalBytesWritten * sizeof(char)),
+             bytesToWrite,
+             0
+            );
+
+    if(bytesWritten < 0) {
+      return -1;
+    }
 
     totalBytesWritten += bytesWritten;
     bytesToWrite -= bytesWritten;
@@ -321,7 +367,7 @@ Sockit::Write(const Arguments& aArgs) {
   }
   while(bytesToWrite > 0);
 
-  return aArgs.This();
+  return totalBytesWritten;
 }
 
 /*static*/ Handle<Value>

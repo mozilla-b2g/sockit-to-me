@@ -19,6 +19,8 @@ private:
 
   static v8::Handle<v8::Value> Write(const v8::Arguments&);
 
+  int Write(const char *, const int);
+
   static v8::Handle<v8::Value> Close(const v8::Arguments&);
 
   int mSocket;

@@ -1,24 +1,23 @@
 // Import the add-on.
-var addon = require('./build/Release/sockit');
+var sockittome = require('./build/Release/sockit');
 
 // Create a new sockit object.
-var sockit = new addon.Sockit();
+var sockit = new sockittome.Sockit();
 
 // Connect to a host and port.
 sockit.connect({ host: "www.google.com", port: 80 });
 
-// Write some data!
-sockit.write("GET / HTTP/1.1\n\n");
+// Write some data! Takes either a String or a node.js 'Buffer' object.
+sockit.write(new Buffer("GET / HTTP/1.0\r\n\r\n"));
 
-// Read some tasty bytes!
-var data = sockit.read(1024);
+// Read some tasty bytes! Returns a node.js 'Buffer' object, always.
+var buffer = sockit.read(1024);
 
 // Observe amazing results.
-console.log("Read ", data.length, " bytes");
+console.log("Read ", buffer.length, " bytes");
 
 // And beautiful raw HTTP response.
-console.log(data);
+console.log(buffer.toString());
 
 // Close it up.
 sockit.close();
-
