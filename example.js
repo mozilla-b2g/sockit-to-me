@@ -1,5 +1,5 @@
 // Import the add-on.
-var sockittome = require('./build/Release/sockit');
+var sockittome = require('./');
 
 // Create a new sockit object.
 var sockit = new sockittome.Sockit();
