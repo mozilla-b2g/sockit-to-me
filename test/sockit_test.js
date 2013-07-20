@@ -69,26 +69,66 @@ suite("Sockit Tests", function() {
 
     suite('argument shape errors', function() {
       test('not enough arguments', function() {
-        assert.ok(subject.connect() instanceof Error);
+        var err;
+
+        try {
+          assert.ok(subject.connect() instanceof Error);
+        } catch(e) {
+          err = e;
+        }
+
+        assert.ok(err instanceof Error);
       });
 
       test('argument of wrong type', function() {
-        assert.ok(subject.connect(23) instanceof Error);
+        var err;
+
+        try {
+          assert.ok(subject.connect(23) instanceof Error);
+        } catch(e) {
+          err = e;
+        }
+
+        assert.ok(err instanceof Error);
       });
 
       test('argument without string "host" attribute', function() {
-        assert.ok(subject.connect({ port: 23 }) instanceof Error);
+        var err;
+
+        try {
+          subject.connect({ port: 23 });
+        } catch(e) {
+          err = e;
+        }
+
+        assert.ok(err instanceof Error);
       });
 
       test('argument without number "port" attribute', function() {
-        assert.ok(subject.connect({ host: 'host' }) instanceof Error);
+        var err;
+
+        try {
+          subject.connect({ host: 'host' });
+        } catch(e) {
+          err = e;
+        }
+
+        assert.ok(err instanceof Error);
       });
     });
 
-    test('error is returned when connection cannot be established',
+    test('error is thrown when connection cannot be established',
       function() {
-      var result = subject.connect({ host: host + 'garbage', port: port });
-      assert.ok(result instanceof Error);
+      var err;
+
+      // Connect throws on error and is synchronous.
+      try {
+        subject.connect({ host: host + 'garbage', port: port });
+      } catch(e) {
+        err = e;
+      }
+
+      assert.ok(err instanceof Error);
     });
   });
 
@@ -116,13 +156,29 @@ suite("Sockit Tests", function() {
       subject.connect({ host: host, port: port });
     });
 
-    test('error is returned when not connected', function() {
-      assert.ok(subject.read(1));
+    test('error is thrown when not connected', function() {
+      var err;
+
+      try {
+        subject.read(1);
+      } catch(e) {
+        err = e;
+      }
+
+      assert.ok(err instanceof Error);
     });
 
-    test('error is returned when a number is not specified', function() {
+    test('error is thrown when a number is not specified', function() {
+      var err;
       subject.connect({ host: host, port: port });
-      assert.ok(subject.read() instanceof Error);
+
+      try {
+        subject.read();
+      } catch(e) {
+        err = e;
+      }
+
+      assert.ok(err instanceof Error);
     });
 
   });
@@ -147,19 +203,42 @@ suite("Sockit Tests", function() {
       subject.connect({ host: host, port: port });
     });
 
-    test('error is returned when not connected', function() {
-      var result = subject.write('data');
-      assert.ok(result instanceof Error);
+    test('error is thrown when not connected', function() {
+      var err;
+
+      try {
+        subject.write('data');
+      } catch(e) {
+        err = e;
+      }
+
+      assert.ok(err instanceof Error);
     });
 
-    test('error is returned when no argument is specified', function() {
+    test('error is thrown when no argument is specified', function() {
+      var err;
       subject.connect({ host: host, port: port });
-      assert.ok(subject.write() instanceof Error);
+
+      try {
+        subject.write();
+      } catch(e) {
+        err = e;
+      }
+
+      assert.ok(err instanceof Error);
     });
 
-    test('error is returned when invalid argument is specified', function() {
+    test('error is thrown when invalid argument is specified', function() {
+      var err;
       subject.connect({ host: host, port: port });
-      assert.ok(subject.write({}) instanceof Error);
+
+      try {
+        subject.write({});
+      } catch(e) {
+        err = e;
+      }
+
+      assert.ok(err instanceof Error);
     });
 
   });
