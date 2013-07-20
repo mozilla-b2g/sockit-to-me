@@ -3,7 +3,7 @@ var ChildProcess = require('child_process');
 var Net = require('net');
 
 // Always use debug binary during testing.
-var Sockit = require('../build/Debug/sockit');
+var Sockit = require('..');
 
 suite("Sockit Tests", function() {
   
