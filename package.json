@@ -7,14 +7,13 @@
   "main": "build/Release/sockit",
 
   "scripts": {
-    "test": "mocha"
+    "test": "mocha",
+    "install": "node-gyp configure build"
   },
-
-  "dependencies": {
-  },
-
+  "dependencies": {},
   "devDependencies": {
-    "mocha": "1.12.x"
+    "mocha": "1.12.x",
+    "node-gyp": "~0.10.6"
   },
 
   "repository": {
