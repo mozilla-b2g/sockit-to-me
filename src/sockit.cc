@@ -89,19 +89,19 @@ Sockit::Connect(const Arguments& aArgs) {
   HandleScope scope;
 
   if(aArgs.Length() < 1) {
-    return scope.Close(
+    return ThrowException(
       Exception::Error(String::New("Not enough arguments."))
     );
   }
 
   if(aArgs.Length() > 1) {
-    return scope.Close(
+    return ThrowException(
       Exception::Error(String::New("Too many arguments."))
     );
   }
 
   if(!aArgs[0]->IsObject()) {
-    return scope.Close(
+    return ThrowException(
       Exception::Error(String::New("Invalid argument. Must be an Object."))
     );
   }
@@ -113,7 +113,7 @@ Sockit::Connect(const Arguments& aArgs) {
 
   if(!options->Has(hostKey) ||
      !options->Get(hostKey)->IsString()) {
-    return scope.Close(
+    return ThrowException(
       Exception::Error(
         String::New("Object must have 'host' field and it must be a string.")
       )
@@ -122,7 +122,7 @@ Sockit::Connect(const Arguments& aArgs) {
 
   if(!options->Has(portKey) ||
      !options->Get(portKey)->IsNumber()) {
-    return scope.Close(
+    return ThrowException(
       Exception::Error(
         String::New("Object must have 'port' field and it must be a number.")
       )
@@ -145,19 +145,19 @@ Sockit::Connect(const Arguments& aArgs) {
       // Check h_errno, we might retry if the error indicates we should.
       switch(h_errno) {
         case HOST_NOT_FOUND:
-          return scope.Close(
+          return ThrowException(
             Exception::Error(String::New("Couldn't resolve host."))
           );
         break;
 
         case NO_RECOVERY:
-          return scope.Close(
+          return ThrowException(
             Exception::Error(String::New("Unexpected failure during host lookup."))
           );
         break;
 
         case NO_DATA:
-          return scope.Close(
+          return ThrowException(
             Exception::Error(String::New("Host exists but has no address."))
           );
         break;
@@ -172,14 +172,14 @@ Sockit::Connect(const Arguments& aArgs) {
   while(shouldRetry && retryCount <= MAX_LOOKUP_RETRIES);
 
   if(hostEntry == NULL) {
-    return scope.Close(
+    return ThrowException(
       Exception::Error(String::New("Couldn't resolve host even after retries."))
     );
   }
 
   int socketHandle = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
   if(socketHandle < 0) {
-    return scope.Close(
+    return ThrowException(
       Exception::Error(String::New("Failed to create socket."))
     );
   }
@@ -206,7 +206,7 @@ Sockit::Connect(const Arguments& aArgs) {
     // In case there's another connect attempt, clean up the socket data.
     sockit->mSocket = 0;
     // Report failure to connect.
-    return scope.Close(Exception::Error(String::New("Failed to connect.")));
+    return ThrowException(Exception::Error(String::New("Failed to connect.")));
   }
 
   return aArgs.This();
@@ -217,7 +217,7 @@ Sockit::Read(const Arguments& aArgs) {
   HandleScope scope;
 
   if(aArgs.Length() != 1) {
-    return scope.Close(
+    return ThrowException(
       Exception::Error(
         String::New("Not enough arguments, read takes the number of bytes to be read from the socket.")
       )
@@ -225,7 +225,7 @@ Sockit::Read(const Arguments& aArgs) {
   }
 
   if(!aArgs[0]->IsNumber()) {
-    return scope.Close(
+    return ThrowException(
       Exception::Error(String::New("Argument must be a Number."))
     );
   }
@@ -234,7 +234,7 @@ Sockit::Read(const Arguments& aArgs) {
 
   // Make sure we're connected to something.
   if(sockit->mSocket == 0) {
-    return scope.Close(
+    return ThrowException(
       Exception::Error(
         String::New("Not connected. To read data you must call connect first.")
       )
@@ -253,7 +253,7 @@ Sockit::Read(const Arguments& aArgs) {
     bytesRead = recv(sockit->mSocket, &buffer[totalBytesRead], bytesToRead, 0);
 
     if(bytesRead < 0) {
-      scope.Close(
+      ThrowException(
           Exception::Error(String::New("Error while reading from socket!"))
       );
     }
@@ -295,13 +295,13 @@ Sockit::Write(const Arguments& aArgs) {
   HandleScope scope;
 
   if(aArgs.Length() < 1) {
-    return scope.Close(
+    return ThrowException(
       Exception::Error(String::New("Not enough arguments."))
     );
   }
 
   if(aArgs.Length() > 1) {
-    return scope.Close(
+    return ThrowException(
       Exception::Error(String::New("Too many arguments."))
     );
   }
@@ -310,7 +310,7 @@ Sockit::Write(const Arguments& aArgs) {
 
   // Make sure we're connected to something.
   if(sockit->mSocket == 0) {
-    return scope.Close(
+    return ThrowException(
       Exception::Error(
         String::New("Not connected. To write data you must call connect first.")
       )
@@ -333,7 +333,7 @@ Sockit::Write(const Arguments& aArgs) {
         sockit->Write(node::Buffer::Data(buffer), node::Buffer::Length(buffer));
   }
   else {
-    return scope.Close(
+    return ThrowException(
       Exception::Error(
         String::New("Invalid argument, must be a 'String' or 'Buffer' object.")
       )
