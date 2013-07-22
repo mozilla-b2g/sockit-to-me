@@ -8,8 +8,8 @@
 using namespace v8;
 
 // Initialize
-void InitAll(Handle<Object> aExports) {
-  Sockit::Init(aExports);
+void InitAll(Handle<Object> aExports, Handle<Object> module) {
+  Sockit::Init(aExports, module);
 }
 
 NODE_MODULE(sockit, InitAll)
