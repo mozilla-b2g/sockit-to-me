@@ -7,19 +7,18 @@
   "main": "build/Release/sockit",
 
   "scripts": {
-    "test": "mocha"
+    "test": "mocha",
+    "install": "node-gyp configure build"
   },
-
-  "dependencies": {
-  },
-
+  "dependencies": {},
   "devDependencies": {
-    "mocha": "1.12.x"
+    "mocha": "1.12.x",
+    "node-gyp": "~0.10.6"
   },
 
   "repository": {
     "type": "git",
-    "url": "https://github.com/nullaus/sockit-to-me.git"
+    "url": "https://github.com/mozilla-b2g/sockit-to-me.git"
   },
 
   "license": "MPLv2",
