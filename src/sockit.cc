@@ -36,7 +36,7 @@ Sockit::~Sockit() {
 }
 
 /*static*/ void
-Sockit::Init(Handle<Object> aExports, Handle<Object> module) {
+Sockit::Init(Handle<Object> aExports) {
   Local<FunctionTemplate> object = FunctionTemplate::New(New);
   // Set the classname our object will have in JavaScript land.
   object->SetClassName(String::NewSymbol("Sockit"));
@@ -69,7 +69,7 @@ Sockit::Init(Handle<Object> aExports, Handle<Object> module) {
   );
 
   // Add the constructor.
-  module->Set(String::NewSymbol("exports"),
+  aExports->Set(String::NewSymbol("Sockit"),
     object->GetFunction());
 }
 

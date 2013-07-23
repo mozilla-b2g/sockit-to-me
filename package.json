@@ -4,7 +4,7 @@
   "author": "Ghislain 'Aus' Lacroix <aus@mozilla.com>",
   "description": "A synchronous socket API for node.js.",
 
-  "main": "build/Release/sockit",
+  "main": "src/index.js",
 
   "scripts": {
     "test": "mocha",
