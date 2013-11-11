@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# curl -L https://github.com/mozilla-b2g/sockit-to-me/master/tools/prebuild.sh | bash -s stable
+# curl -L https://raw.github.com/mozilla-b2g/sockit-to-me/master/tools/prebuild.sh | bash -s stable
 # This script prebuilds nodejs and sockit-to-me on ubuntu since we can't do
 # it on the fly on the build machines (they don't have gcc).
 UBUNTU=/home/ubuntu
