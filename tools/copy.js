@@ -12,16 +12,19 @@ var exec = require('child_process').exec;
  */
 function getRequiredVersion(callback) {
   if (process.platform !== 'linux') {
+    console.log('[sockit-to-me] platform not linux');
     return callback(null);
   }
 
   exec('type gcc', function(err, stdout) {
     if (stdout.indexOf('gcc is') !== -1) {
+      console.log('[sockit-to-me] found gcc');
       return callback(null);
     }
 
     exec('lsb_release -a', function(err, stdout) {
       if (stdout.indexOf('precise') === -1) {
+        console.log('[sockit-to-me] distribution not precise');
         return callback(null);
       }
 
@@ -50,7 +53,8 @@ function main() {
     }
 
     // Copy an existing binary into build/Release.
-    console.log('Will use existing binary for ' + version + '...');
+    console.log('[sockit-to-me] will use existing binary');
+    console.log('[sockit-to-me] ' + version);
     exec('mkdir -p build', function() {
       var source = 'bin/ubuntu-12.04.3-' + version;
       var dest = 'build/Release';
