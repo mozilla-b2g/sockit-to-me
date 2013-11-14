@@ -16,9 +16,9 @@ function getRequiredVersion(callback) {
     return callback(null);
   }
 
-  exec('type gcc', function(err, stdout) {
-    if (stdout.indexOf('gcc is') !== -1) {
-      console.log('[sockit-to-me] found gcc');
+  exec('type g++', function(err, stdout) {
+    if (stdout.indexOf('g++ is') !== -1) {
+      console.log('[sockit-to-me] found g++');
       return callback(null);
     }
 
