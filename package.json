@@ -8,8 +8,8 @@
 
   "scripts": {
     "test": "mocha",
-    "preinstall": ": noop",
-    "install": "./tools/copy.js || node-gyp configure build"
+    "preinstall": "./tools/info.js || echo \"[sockit-to-me] OK\"",
+    "install": "./tools/info.js || ./tools/copy.js || node-gyp configure build"
   },
   "dependencies": {},
   "devDependencies": {
