@@ -271,7 +271,7 @@ Sockit::Read(const Arguments& aArgs) {
   memcpy(node::Buffer::Data(heapBuffer), buffer, totalBytesRead);
 
   // Done with our temporary buffer.
-  delete buffer;
+  delete[] buffer;
 
   // Now we construct an actual 'Buffer' node.js object.
   // First we need the global context object.
