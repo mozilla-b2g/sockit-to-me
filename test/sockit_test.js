@@ -181,6 +181,34 @@ suite("Sockit Tests", function() {
       assert.ok(err instanceof Error);
     });
 
+    test('1s timeout if no data', function(done) {
+      subject.setPollTimeout(1000);
+
+      // Register a listener to ensure that the server really is ready
+      server.on('message', function(message) {
+        // Connected, ask server to send NOTHING.
+        if(message.reply == 'connected') {
+
+          var err;
+
+          try {
+            // Read the response.
+            var response = subject.read(helo.length);
+          }
+          catch(e) {
+            err = e;
+          }
+
+          assert.ok(err instanceof Error);
+
+          done();
+        }
+      })
+
+      // Connect to server.
+      subject.connect({ host: host, port: port });
+    });
+
   });
 
   suite('#write', function() {
