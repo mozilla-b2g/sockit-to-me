@@ -6,6 +6,8 @@
 #include <errno.h>
 #include <unistd.h>
 #include <string.h>
+#include <fcntl.h>
+#include <poll.h>
 
 #include <sys/ioctl.h>
 #include <sys/socket.h>
@@ -22,8 +24,9 @@ using namespace v8;
 
 // Clever constants
 static const int    MAX_LOOKUP_RETRIES = 3;
+static const int    POLL_TIMEOUT_MS = 60000;
 
-Sockit::Sockit() : mSocket(0) {
+Sockit::Sockit() : mSocket(0), mPollTimeout(POLL_TIMEOUT_MS) {
 
 }
 
@@ -66,6 +69,12 @@ Sockit::Init(Handle<Object> aExports) {
   object->PrototypeTemplate()->Set(
     String::NewSymbol("close"),
     FunctionTemplate::New(Close)->GetFunction()
+  );
+
+  // Add the 'SetPollTimeout' function.
+  object->PrototypeTemplate()->Set(
+    String::NewSymbol("setPollTimeout"),
+    FunctionTemplate::New(SetPollTimeout)->GetFunction()
   );
 
   // Add the constructor.
@@ -209,6 +218,17 @@ Sockit::Connect(const Arguments& aArgs) {
     return ThrowException(Exception::Error(String::New("Failed to connect.")));
   }
 
+  int flags = fcntl(socketHandle, F_GETFL, 0);
+  if(flags == -1) {
+    flags = 0;
+  }
+  int result = fcntl(socketHandle, F_SETFL, flags | O_NONBLOCK);
+  if(result < 0) {
+    return ThrowException(
+      Exception::Error(String::New("Failed to set non blocking to socket."))
+    );
+  }
+
   return aArgs.This();
 }
 
@@ -249,13 +269,44 @@ Sockit::Read(const Arguments& aArgs) {
   int totalBytesRead = 0;
   int bytesRead = 0;
   // Read me some tasty bytes!
+  struct pollfd fds;
+  fds.fd = sockit->mSocket;
+  fds.events = POLLIN;
+
   do {
+    fds.revents = 0;
+
+    int result = poll(&fds, 1, sockit->mPollTimeout);
+    if(result == 0) {
+      ThrowException(
+          Exception::Error(String::New("Polling socket recv() timeout!"))
+      );
+      break;
+    }
+    else if(result < 0 || (fds.revents & POLLERR)) {
+      ThrowException(
+          Exception::Error(String::New("Error polling recv() socket!"))
+      );
+      break;
+    }
+    else if(!(fds.revents & POLLIN)) {
+      ThrowException(
+          Exception::Error(String::New("Unhandled poll event recv() socket!"))
+      );
+      break;
+    }
     bytesRead = recv(sockit->mSocket, &buffer[totalBytesRead], bytesToRead, 0);
 
     if(bytesRead < 0) {
+
+      if(errno == EAGAIN || errno == EWOULDBLOCK) {
+        continue;
+      }
+
       ThrowException(
           Exception::Error(String::New("Error while reading from socket!"))
       );
+      break;
     }
 
     bytesToRead -= bytesRead;
@@ -265,29 +316,36 @@ Sockit::Read(const Arguments& aArgs) {
   }
   while(bytesToRead > 0);
 
-  // Create a node heap allocated buffer first.
-  node::Buffer *heapBuffer = node::Buffer::New(totalBytesRead);
-  // Copy our temporary buffer data into the heap buffer.
-  memcpy(node::Buffer::Data(heapBuffer), buffer, totalBytesRead);
+  if(totalBytesRead) {
+    // Create a node heap allocated buffer first.
+    node::Buffer *heapBuffer = node::Buffer::New(totalBytesRead);
+    // Copy our temporary buffer data into the heap buffer.
+    memcpy(node::Buffer::Data(heapBuffer), buffer, totalBytesRead);
+
+    // Now we construct an actual 'Buffer' node.js object.
+    // First we need the global context object.
+    Local<Object> globalContext = Context::GetCurrent()->Global();
+    // Now we get the constructor function for the 'Buffer' object.
+    Local<Function> jsBufferConstructor =
+        Local<Function>::Cast(globalContext->Get(String::NewSymbol("Buffer")));
+    // Create the arguments array to call the 'Buffer' constructor.
+    Handle<Value> jsBufferConstructorArgs[3] =
+      { heapBuffer->handle_, Integer::New(totalBytesRead), Integer::New(0) };
+    // Call the 'Buffer' constructor, finally!
+    Local<Object> jsBuffer
+      = jsBufferConstructor->NewInstance(3, jsBufferConstructorArgs);
+    // Done with our temporary buffer.
+    delete [] buffer;
+
+    // Return those tasty bytes!
+    return scope.Close(jsBuffer);
+  }
 
   // Done with our temporary buffer.
-  delete[] buffer;
+  delete [] buffer;
 
-  // Now we construct an actual 'Buffer' node.js object.
-  // First we need the global context object.
-  Local<Object> globalContext = Context::GetCurrent()->Global();
-  // Now we get the constructor function for the 'Buffer' object.
-  Local<Function> jsBufferConstructor =
-      Local<Function>::Cast(globalContext->Get(String::NewSymbol("Buffer")));
-  // Create the arguments array to call the 'Buffer' constructor.
-  Handle<Value> jsBufferConstructorArgs[3] =
-    { heapBuffer->handle_, Integer::New(totalBytesRead), Integer::New(0) };
-  // Call the 'Buffer' constructor, finally!
-  Local<Object> jsBuffer =
-      jsBufferConstructor->NewInstance(3, jsBufferConstructorArgs);
-
-  // Return those tasty bytes!
-  return scope.Close(jsBuffer);
+  // Return NULL!
+  return scope.Close(Null());
 }
 
 /*static*/ Handle<Value>
@@ -388,6 +446,35 @@ Sockit::Close(const Arguments& aArgs) {
   }
 
   sockit->mSocket = 0;
+
+  return aArgs.This();
+}
+
+/*static*/ Handle<Value>
+Sockit::SetPollTimeout(const Arguments& aArgs) {
+  HandleScope scope;
+
+  if(aArgs.Length() < 1) {
+    return ThrowException(
+      Exception::Error(String::New("Not enough arguments."))
+    );
+  }
+
+  if(aArgs.Length() > 1) {
+    return ThrowException(
+      Exception::Error(String::New("Too many arguments."))
+    );
+  }
+
+  if(!aArgs[0]->IsNumber()) {
+    return ThrowException(
+      Exception::Error(String::New("Argument is not a number."))
+    );
+  }
+
+  Sockit *sockit = ObjectWrap::Unwrap<Sockit>(aArgs.This());
+
+  sockit->mPollTimeout = aArgs[0]->Int32Value();
 
   return aArgs.This();
 }
