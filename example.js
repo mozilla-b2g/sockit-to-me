@@ -1,8 +1,8 @@
 // Import the add-on.
-var sockittome = require('./');
+var Sockittome = require('./');
 
 // Create a new sockit object.
-var sockit = new sockittome.Sockit();
+var sockit = new Sockittome();
 
 // Connect to a host and port.
 sockit.connect({ host: "www.google.com", port: 80 });

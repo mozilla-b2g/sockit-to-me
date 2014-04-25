@@ -78,9 +78,8 @@ Sockit::Init(Handle<Object> aExports) {
   );
 
   // Add the constructor.
-  Persistent<Function> constructor =
-    Persistent<Function>::New(object->GetFunction());
-  aExports->Set(String::NewSymbol("Sockit"), constructor);
+  aExports->Set(String::NewSymbol("Sockit"),
+    object->GetFunction());
 }
 
 /*static*/ Handle<Value>

@@ -20,7 +20,7 @@ suite("Sockit Tests", function() {
   var subject = null;
   
   setup(function(done) {
-    subject = new Sockit.Sockit();
+    subject = new Sockit();
     // Start the child process.
     server = ChildProcess.fork(__dirname + '/../test_support/server.js');
     // Register listener 
