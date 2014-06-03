@@ -308,6 +308,12 @@ Sockit::Read(const Arguments& aArgs) {
       );
       break;
     }
+    if(bytesRead == 0) {
+      ThrowException(
+          Exception::Error(String::New("Connection reset by peer!"))
+      );
+      break;
+    }
 
     bytesToRead -= bytesRead;
     totalBytesRead += bytesRead;

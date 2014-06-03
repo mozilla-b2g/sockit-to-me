@@ -18,9 +18,13 @@ suite("Sockit Tests", function() {
 
   var server = null;
   var subject = null;
+  // global flag set to true if we kill the server
+  // needed for the close / disconnect
+  var server_killed = false;
   
   setup(function(done) {
     subject = new Sockit.Sockit();
+    server_killed = false;
     // Start the child process.
     server = ChildProcess.fork(__dirname + '/../test_support/server.js');
     // Register listener 
@@ -38,19 +42,23 @@ suite("Sockit Tests", function() {
   teardown(function(done) {
     // Close connection to server.
     subject.close();
-    // Register listener to shutdown child process once the server has 
-    // successfully closed it's listening socket.
-    server.on('message', function(message) {
-      // Server has actually stopped.
-      if(message.reply == 'stopped') {
-        // Disconnect child process.
-        server.disconnect();
-        // Teardown complete.
-        done();
-      }
-    });
-    // Ask server to stop.
-    server.send({ command: 'stop' });
+    if (!server_killed) {
+      // Register listener to shutdown child process once the server has 
+      // successfully closed it's listening socket.
+      server.on('message', function(message) {
+        // Server has actually stopped.
+        if(message.reply == 'stopped') {
+          // Disconnect child process.
+          server.disconnect();
+          // Teardown complete.
+          done();
+        }
+      });
+      // Ask server to stop.
+      server.send({ command: 'stop' });
+    } else {
+      done();
+    }
   });
 
   suite('#connect', function() {
@@ -208,6 +216,37 @@ suite("Sockit Tests", function() {
       // Connect to server.
       subject.connect({ host: host, port: port });
     });
+
+    test('socket closing', function(done) {
+
+      subject.setPollTimeout(1000);
+      // Register a listener to ensure that the server really is ready
+      server.on('message', function(message) {
+        // Connected, ask server to send NOTHING.
+        if(message.reply == 'connected') {
+
+          var err;
+          server.kill('SIGKILL');
+          server_killed = true;
+
+          try {
+            // Read the response.
+            var response = subject.read(helo.length);
+          }
+          catch(e) {
+            err = e;
+          }
+
+          assert.ok(err instanceof Error);
+
+          done();
+        }
+      })
+
+      // Connect to server.
+      subject.connect({ host: host, port: port });
+    });
+
 
   });
 
