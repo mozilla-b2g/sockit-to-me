@@ -21,9 +21,8 @@ suite("Sockit Tests", function() {
   // global flag set to true if we kill the server
   // needed for the close / disconnect
   var server_killed = false;
-  
-  setup(function(done) {
-    subject = new Sockit.Sockit();
+
+  function startServer(callback) {
     server_killed = false;
     // Start the child process.
     server = ChildProcess.fork(__dirname + '/../test_support/server.js');
@@ -32,30 +31,41 @@ suite("Sockit Tests", function() {
       // Server has actually started listening on the expected host and port.
       if(message.reply == 'started') {
         // Setup complete.
-        done();
+        callback();
       }
     });
     // Ask server to start.
     server.send({ command: 'start' });
+  }
+
+  function stopServer(callback) {
+    // Register listener to shutdown child process once the server has
+    // successfully closed it's listening socket.
+    server.on('message', function(message) {
+      // Server has actually stopped.
+      if(message.reply == 'stopped') {
+        // Indicate server was killed.
+        server_killed = true;
+        // Disconnect child process.
+        server.disconnect();
+        // Teardown complete.
+        callback();
+      }
+    });
+    // Ask server to stop.
+    server.send({ command: 'stop' });
+  }
+
+  setup(function(done) {
+    subject = new Sockit.Sockit();
+    startServer(done);
   });
 
   teardown(function(done) {
     // Close connection to server.
     subject.close();
     if (!server_killed) {
-      // Register listener to shutdown child process once the server has 
-      // successfully closed it's listening socket.
-      server.on('message', function(message) {
-        // Server has actually stopped.
-        if(message.reply == 'stopped') {
-          // Disconnect child process.
-          server.disconnect();
-          // Teardown complete.
-          done();
-        }
-      });
-      // Ask server to stop.
-      server.send({ command: 'stop' });
+      stopServer(done);
     } else {
       done();
     }
@@ -138,6 +148,34 @@ suite("Sockit Tests", function() {
 
       assert.ok(err instanceof Error);
     });
+
+    test('connection will timeout when expected when using setPollTimeout',
+      function() {
+
+      subject.setPollTimeout(1000);
+
+      var err;
+      var start = Date.now();
+      try {
+        subject.connect({ host: '1.2.3.4', port: 31337 });
+      } catch(e) {
+        err = e;
+      }
+      assert.ok(Date.now() - start >= 1000);
+      assert.ok(err instanceof Error);
+    });
+
+    test('calling connect twice will fail', function() {
+      try {
+        subject.connect({ host: host, port: port });
+        subject.connect({ host: host, port: port });
+      } catch(e) {
+        err = e;
+      }
+
+      assert.ok(err instanceof Error);
+      assert.ok(err.message.indexOf('ALREADY CONNECTED') != -1);
+    })
   });
 
   suite('#read', function() {

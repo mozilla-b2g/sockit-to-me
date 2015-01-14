@@ -26,7 +26,10 @@ using namespace v8;
 static const int    MAX_LOOKUP_RETRIES = 3;
 static const int    POLL_TIMEOUT_MS = 60000;
 
-Sockit::Sockit() : mSocket(0), mPollTimeout(POLL_TIMEOUT_MS) {
+Sockit::Sockit() : mSocket(0),
+                   mPollTimeout(POLL_TIMEOUT_MS),
+                   mIsConnecting(false),
+                   mIsConnected(false) {
 
 }
 
@@ -138,6 +141,31 @@ Sockit::Connect(const Arguments& aArgs) {
     );
   }
 
+  Sockit *sockit = ObjectWrap::Unwrap<Sockit>(aArgs.This());
+
+  // Ensure we're not already attempting to connect.
+  if(sockit->mIsConnecting) {
+    return ThrowException(
+      Exception::Error(
+        String::New("ALREADY CONNECTING! You must call close before " \
+                    "calling connect again.")
+      )
+    );
+  }
+
+  // Ensure we're not already connected.
+  if(sockit->mIsConnected) {
+    return ThrowException(
+      Exception::Error(
+        String::New("ALREADY CONNECTED! You must call close before " \
+                    "calling connect again.")
+      )
+    );
+  }
+
+  // We can consider ourselves in an attempt to connect at this point.
+  sockit->mIsConnecting = true;
+
   // XXXAus: Move the DNS piece into it's own method.
 
   String::Utf8Value optionsHost(options->Get(hostKey)->ToString());
@@ -193,8 +221,19 @@ Sockit::Connect(const Arguments& aArgs) {
     );
   }
 
-  Sockit *sockit = ObjectWrap::Unwrap<Sockit>(aArgs.This());
   sockit->mSocket = socketHandle;
+
+  // Set socket non-blocking prior to connect. We'll poll for connect success.
+  int flags = fcntl(socketHandle, F_GETFL, 0);
+  if(flags == -1) {
+    flags = 0;
+  }
+  int result = fcntl(socketHandle, F_SETFL, flags | O_NONBLOCK);
+  if(result < 0) {
+    return ThrowException(
+      Exception::Error(String::New("Failed to set non blocking to socket."))
+    );
+  }
 
   // Magic socket incantation.
   struct sockaddr_in address;
@@ -207,27 +246,59 @@ Sockit::Connect(const Arguments& aArgs) {
   address.sin_port =
       htons(static_cast<short>(options->Get(portKey)->ToNumber()->Uint32Value()));
 
-  if(connect(
-       sockit->mSocket, (sockaddr *) &address, sizeof(struct sockaddr)
-     ) < 0) {
+  result = connect(
+      sockit->mSocket, (sockaddr *) &address, sizeof(struct sockaddr)
+    );
+
+  if(result == -1 && errno != EINPROGRESS) {
     // We failed to connect. Close to socket we created.
     close(sockit->mSocket);
     // In case there's another connect attempt, clean up the socket data.
     sockit->mSocket = 0;
+    sockit->mIsConnecting = false;
     // Report failure to connect.
     return ThrowException(Exception::Error(String::New("Failed to connect.")));
   }
 
-  int flags = fcntl(socketHandle, F_GETFL, 0);
-  if(flags == -1) {
-    flags = 0;
+  struct pollfd fds;
+  fds.fd = sockit->mSocket;
+  fds.events = POLLWRBAND | POLLWRNORM | POLLNVAL;
+  fds.revents = 0;
+
+  result = poll(&fds, 1, sockit->mPollTimeout);
+
+  // If we've failed, we'll clean-up and try and send an exception.
+  if(result != 1) {
+    // Close and clean-up.
+    close(sockit->mSocket);
+    sockit->mSocket = 0;
+    sockit->mIsConnecting = false;
+    sockit->mIsConnected = false;
+
+    if(result == 0) {
+      return ThrowException(
+          Exception::Error(String::New("Polling socket connect() timeout!"))
+      );
+    }
+    else if(result < 0 || (fds.revents & POLLERR)) {
+      return ThrowException(
+          Exception::Error(String::New("Error polling connect() socket!"))
+      );
+    }
+    else if(!((fds.revents & POLLWRBAND) || (fds.revents & POLLWRNORM)) ) {
+      return ThrowException(
+          Exception::Error(String::New("Unhandled poll event connect() socket!"))
+      );
+    }
+
+
+    return scope.Close(String::New("Failed to connect."));
   }
-  int result = fcntl(socketHandle, F_SETFL, flags | O_NONBLOCK);
-  if(result < 0) {
-    return ThrowException(
-      Exception::Error(String::New("Failed to set non blocking to socket."))
-    );
-  }
+
+  // Otherwise, we're really connected.
+  sockit->mIsConnected = true;
+  // And we're no longer attempting to connect.
+  sockit->mIsConnecting = false;
 
   return aArgs.This();
 }
@@ -452,6 +523,8 @@ Sockit::Close(const Arguments& aArgs) {
   }
 
   sockit->mSocket = 0;
+  sockit->mIsConnecting = false;
+  sockit->mIsConnected = false;
 
   return aArgs.This();
 }

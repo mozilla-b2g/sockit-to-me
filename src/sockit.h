@@ -27,6 +27,9 @@ private:
 
   int mSocket;
   int mPollTimeout;
+
+  bool mIsConnecting;
+  bool mIsConnected;
 };
 
 #endif
