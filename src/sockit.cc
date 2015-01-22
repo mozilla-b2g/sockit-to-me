@@ -22,9 +22,25 @@
 // So we don't spend half the time typing 'v8::'
 using namespace v8;
 
+// Turn On Debug Logging by default.
+#define __DEBUG_LOG 1
+
+// Error Messages
+#define E_ALREADY_CONNECTING \
+  "ALREADY CONNECTING! You must call close before calling connect again.\n"
+#define E_ALREADY_CONNECTED \
+  "ALREADY CONNECTED! You must call close before calling connect again.\n"
+
 // Clever constants
 static const int    MAX_LOOKUP_RETRIES = 3;
 static const int    POLL_TIMEOUT_MS = 60000;
+
+static void _debug_log(const char *aMsg) {
+  #if(__DEBUG_LOG)
+  fprintf(stderr, "[sockit-to-me] ");
+  fprintf(stderr, aMsg);
+  #endif
+}
 
 Sockit::Sockit() : mSocket(0),
                    mPollTimeout(POLL_TIMEOUT_MS),
@@ -145,22 +161,14 @@ Sockit::Connect(const Arguments& aArgs) {
 
   // Ensure we're not already attempting to connect.
   if(sockit->mIsConnecting) {
-    return ThrowException(
-      Exception::Error(
-        String::New("ALREADY CONNECTING! You must call close before " \
-                    "calling connect again.")
-      )
-    );
+    _debug_log(E_ALREADY_CONNECTING);
+    return ThrowException(Exception::Error(String::New(E_ALREADY_CONNECTING)));
   }
 
   // Ensure we're not already connected.
   if(sockit->mIsConnected) {
-    return ThrowException(
-      Exception::Error(
-        String::New("ALREADY CONNECTED! You must call close before " \
-                    "calling connect again.")
-      )
-    );
+    _debug_log(E_ALREADY_CONNECTED);
+    return ThrowException(Exception::Error(String::New(E_ALREADY_CONNECTED)));
   }
 
   // We can consider ourselves in an attempt to connect at this point.
