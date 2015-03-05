@@ -22,9 +22,6 @@
 // So we don't spend half the time typing 'v8::'
 using namespace v8;
 
-// Turn On Debug Logging by default.
-#define __DEBUG_LOG 1
-
 // Error Messages
 #define E_ALREADY_CONNECTING \
   "ALREADY CONNECTING! You must call close before calling connect again.\n"
@@ -35,11 +32,15 @@ using namespace v8;
 static const int    MAX_LOOKUP_RETRIES = 3;
 static const int    POLL_TIMEOUT_MS = 60000;
 
+// Global for debug log enable/disable at runtime.
+static bool gDebugLog = false;
+
 static void _debug_log(const char *aMsg) {
-  #if(__DEBUG_LOG)
-  fprintf(stderr, "[sockit-to-me] ");
-  fprintf(stderr, aMsg);
-  #endif
+  if(gDebugLog) {
+    fprintf(stderr, "[sockit-to-me] ");
+    fprintf(stderr, aMsg);
+    fprintf(stderr, "\n");
+  }
 }
 
 Sockit::Sockit() : mSocket(0),
@@ -94,6 +95,12 @@ Sockit::Init(Handle<Object> aExports) {
   object->PrototypeTemplate()->Set(
     String::NewSymbol("setPollTimeout"),
     FunctionTemplate::New(SetPollTimeout)->GetFunction()
+  );
+
+  // Add the 'SetDebugLog' function.
+  object->PrototypeTemplate()->Set(
+    String::NewSymbol("setDebugLog"),
+    FunctionTemplate::New(SetDebugLog)->GetFunction()
   );
 
   // Add the constructor.
@@ -562,6 +569,37 @@ Sockit::SetPollTimeout(const Arguments& aArgs) {
   Sockit *sockit = ObjectWrap::Unwrap<Sockit>(aArgs.This());
 
   sockit->mPollTimeout = aArgs[0]->Int32Value();
+
+  return aArgs.This();
+}
+
+/*static*/ Handle<Value>
+Sockit::SetDebugLog(const Arguments& aArgs) {
+  HandleScope scope;
+
+  if(aArgs.Length() < 1) {
+    return ThrowException(
+      Exception::Error(String::New("Not enough arguments."))
+    );
+  }
+
+  if(aArgs.Length() > 1) {
+    return ThrowException(
+      Exception::Error(String::New("Too many arguments."))
+    );
+  }
+
+  if(!aArgs[0]->IsBoolean()) {
+    return ThrowException(
+      Exception::Error(String::New("Argument is not a boolean."))
+    );
+  }
+
+  gDebugLog = aArgs[0]->BooleanValue();
+
+  if(gDebugLog) {
+    _debug_log("debug log enabled");
+  }
 
   return aArgs.This();
 }
