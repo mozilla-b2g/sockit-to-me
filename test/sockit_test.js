@@ -347,4 +347,34 @@ suite("Sockit Tests", function() {
     });
 
   });
+
+  suite('#setDebugLog', function() {
+
+    test('succeeds', function() {
+      subject.setDebugLog(true);
+    });
+
+    test('error is thrown with invalid argument count', function() {
+      var err;
+      try {
+        subject.setDebugLog();
+      } catch(e) {
+        err = e;
+      }
+
+      assert.ok(err instanceof Error);
+    });
+
+    test('error is thrown with bad argument type', function() {
+      var err;
+      try {
+        subject.setDebugLog('a string is not the right type');
+      } catch(e) {
+        err = e;
+      }
+
+      assert.ok(err instanceof Error);
+    });
+
+  });
 });
