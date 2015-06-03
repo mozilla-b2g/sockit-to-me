@@ -1,7 +1,6 @@
 sockit-to-me
 ============
 
-A synchronous socket API for node.js and Marionette
+[![You shall not pass](http://cdn.meme.am/instances/500x/62331333.jpg)](https://github.com/mozilla-b2g/gaia/tree/master/tests/jsmarionette)
 
-[![Build Status](https://travis-ci.org/mozilla-b2g/sockit-to-me.png)](https://travis-ci.org/mozilla-b2g/sockit-to-me)
-
+Development has moved [here](https://github.com/mozilla-b2g/gaia/tree/master/tests/jsmarionette). Please submit your bugs to [bugzilla](https://bugzilla.mozilla.org) and send your pull requests to [mozilla-b2g/gaia](https://github.com/mozilla-b2g/gaia).
